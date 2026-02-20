@@ -1,0 +1,6 @@
+# Add patterns to ignore here
+.git
+.venv
+__pycache__
+.DS_Store
+.env
