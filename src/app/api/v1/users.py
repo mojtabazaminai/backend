@@ -22,7 +22,7 @@ from ...services.subscription.service import SubscriptionService
 from ...services.users.service import UserService
 from ..dependencies import get_current_user, get_subscription_service, get_users_service
 
-router = APIRouter(prefix="/users", tags=["users"])
+router = APIRouter(prefix="/auth", tags=["users"])
 
 
 def set_auth_cookies(response: Response, access_token: str, refresh_token: str) -> None:
