@@ -21,6 +21,13 @@ def drop_color_message_key(_, __, event_dict: EventDict) -> EventDict:
     return event_dict
 
 
+def compact_exception_formatter(exc_info: tuple[object, BaseException | None, object]) -> str:
+    _, exc, _ = exc_info
+    if exc is None:
+        return "Exception"
+    return f"{exc.__class__.__name__}: {exc}"
+
+
 def file_log_filter_processors(_, __, event_dict: EventDict) -> EventDict:
     """Filter out the request ID, path, method, client host, and status code from the event dict if the
     corresponding setting is False."""
@@ -79,7 +86,7 @@ structlog.configure(
 
 def build_formatter(*, json_output: bool, pre_chain: list[Processor]) -> structlog.stdlib.ProcessorFormatter:
     """Build a ProcessorFormatter with the specified renderer and processors."""
-    renderer = JSONRenderer() if json_output else ConsoleRenderer()
+    renderer = JSONRenderer() if json_output else ConsoleRenderer(exception_formatter=compact_exception_formatter)
 
     processors = [structlog.stdlib.ProcessorFormatter.remove_processors_meta, renderer]
 

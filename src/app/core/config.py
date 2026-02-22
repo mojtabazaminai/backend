@@ -1,7 +1,7 @@
 import os
 from enum import Enum
 
-from pydantic import SecretStr, computed_field
+from pydantic import AliasChoices, Field, SecretStr, computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -253,6 +253,15 @@ class CORSSettings(BaseSettings):
     CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://localhost:8000"]
     CORS_METHODS: list[str] = ["*"]
     CORS_HEADERS: list[str] = ["*"]
+    ALLOW_ORIGINS: str = Field(default="", validation_alias=AliasChoices("ALLOW_ORIGINS", "allow_origins"))
+
+    @computed_field
+    @property
+    def RESOLVED_CORS_ORIGINS(self) -> list[str]:
+        extra_origins = [origin.strip() for origin in self.ALLOW_ORIGINS.split(",") if origin.strip()]
+        if not extra_origins:
+            return self.CORS_ORIGINS
+        return list(dict.fromkeys([*self.CORS_ORIGINS, *extra_origins]))
 
 
 class GoogleSettings(BaseSettings):

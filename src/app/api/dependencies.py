@@ -74,7 +74,7 @@ async def get_current_user(
     if not token:
         raise UnauthorizedException("User not authenticated.")
 
-    token_data = await verify_token(token, TokenType.ACCESS, db)
+    token_data = await verify_token(token, TokenType.ACCESS)
     if token_data is None:
         raise UnauthorizedException("User not authenticated.")
 
