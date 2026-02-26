@@ -1,7 +1,7 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import List, Optional
 
-from sqlalchemy import Boolean, DateTime, Float, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -89,6 +89,7 @@ class Property(Base):
     parking_total: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     photos_count: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     primary_photo_url: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    primary_photo: Mapped[Optional[str]] = mapped_column(String, nullable=True)
 
     # Features (Arrays/JSON)
     appliances: Mapped[Optional[List[str]]] = mapped_column(JSONB, nullable=True)
@@ -207,3 +208,29 @@ class Property(Base):
 
     # Media (JSON)
     media: Mapped[Optional[List[dict]]] = mapped_column(JSONB, nullable=True)
+
+
+class PropertyMedia(Base):
+    __tablename__ = "property_media"
+    __table_args__ = {"schema": "public"}
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True, init=False)
+    property_id: Mapped[str] = mapped_column(
+        String, ForeignKey("public.property.listing_key"), nullable=False
+    )
+    s3_path: Mapped[str] = mapped_column(String, nullable=False)
+    kind: Mapped[str] = mapped_column(String, nullable=False)
+    order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    description: Mapped[Optional[str]] = mapped_column(String, nullable=True, default=None)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default_factory=lambda: datetime.now(UTC),
+        init=False,
+    )
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        default=None,
+        onupdate=lambda: datetime.now(UTC),
+        init=False,
+    )

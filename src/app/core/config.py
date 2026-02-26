@@ -294,6 +294,14 @@ class APISettings(BaseSettings):
     GATEWAY_PRIVATE_HEADER_API_KEY: str = "your-private-api-key"
 
 
+class S3Settings(BaseSettings):
+    AWS_ACCESS_KEY_ID: str = ""
+    AWS_SECRET_ACCESS_KEY: str = ""
+    AWS_REGION: str = "us-east-1"
+    S3_BUCKET_NAME: str = ""
+    S3_ENDPOINT_URL: str = ""
+
+
 class Settings(
     AppSettings,
     SQLiteSettings,
@@ -319,6 +327,7 @@ class Settings(
     ElasticsearchSettings,
     KafkaSettings,
     IngestSettings,
+    S3Settings,
 ):
     model_config = SettingsConfigDict(
         env_file=os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "..", ".env"),

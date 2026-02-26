@@ -249,5 +249,7 @@ class PropertyDetailResponse(BaseModel):
     area: Optional[float] = None
     amenities: List[str] = []
     images: List[str] = []
+    primary_photo: Optional[str] = None
+    primary_photo_s3_address: Optional[str] = None
     price: PropertyPrice
     rating: float = 0
