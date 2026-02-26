@@ -43,11 +43,11 @@ class SubscriptionService:
 
         sub_with_plan = await self._get_active_subscription(user_id)
         if not sub_with_plan:
-            return False
+            raise ValueError("no active subscription")
 
         subscription, plan = sub_with_plan
         if not plan:
-            return False
+            raise ValueError("no active subscription")
 
         used = subscription.monthly_listing_usage or 0
         hard_limit = plan.hard_usage_limit or 0
