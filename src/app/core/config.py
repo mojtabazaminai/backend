@@ -294,6 +294,12 @@ class APISettings(BaseSettings):
     GATEWAY_PRIVATE_HEADER_API_KEY: str = "your-private-api-key"
 
 
+class CMASettings(BaseSettings):
+    CMA_API_BASE_URL: str = "http://localhost:9000"
+    CMA_API_KEY: str = ""
+    CMA_API_TIMEOUT: int = 60
+
+
 class Settings(
     AppSettings,
     SQLiteSettings,
@@ -319,6 +325,7 @@ class Settings(
     ElasticsearchSettings,
     KafkaSettings,
     IngestSettings,
+    CMASettings,
 ):
     model_config = SettingsConfigDict(
         env_file=os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "..", ".env"),
