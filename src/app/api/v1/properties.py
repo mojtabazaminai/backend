@@ -11,6 +11,7 @@ from ...schemas.property import (
     PropertySuggestResponse,
     PropertyPrice,
 )
+from ...core.utils.s3 import generate_presigned_url, get_s3_address
 from ...services.property.service import PropertyService
 from ...services.subscription.service import SubscriptionService
 from ..dependencies import get_optional_user, get_property_service, get_subscription_service
@@ -71,24 +72,30 @@ async def get_property(
         except ValueError as exc:
             raise HTTPException(status_code=412, detail=str(exc)) from exc
 
-    # Map SQLAlchemy model to Pydantic schema
+    # Map dict to Pydantic schema (FastCRUD .get() returns a dict)
+    media = property.get("media") or []
+    raw_photo_key = property.get("primary_photo")
+    primary_photo_url = generate_presigned_url(raw_photo_key)
+    primary_photo_s3 = get_s3_address(raw_photo_key)
     return PropertyDetailResponse(
-        id=property.listing_key,
-        name=property.unparsed_address,
-        description=property.public_remarks,
-        address=property.unparsed_address,
-        city=property.city,
-        state=property.state_or_province,
-        postal_code=property.postal_code,
-        bedrooms=property.bedrooms_total,
-        bathrooms=property.bathrooms_total_integer,
-        area=property.living_area,
-        amenities=property.interior_features or [],
-        images=[m.get("MediaURL", "") for m in property.media] if property.media else [],
+        id=property["listing_key"],
+        name=property.get("unparsed_address"),
+        description=property.get("public_remarks"),
+        address=property.get("unparsed_address"),
+        city=property.get("city"),
+        state=property.get("state_or_province"),
+        postal_code=property.get("postal_code"),
+        bedrooms=property.get("bedrooms_total"),
+        bathrooms=property.get("bathrooms_total_integer"),
+        area=property.get("living_area"),
+        amenities=property.get("interior_features") or [],
+        images=[m.get("MediaURL", "") for m in media],
+        primary_photo=primary_photo_url,
+        primary_photo_s3_address=primary_photo_s3,
         price=PropertyPrice(
-            amount=property.list_price,
+            amount=property.get("list_price"),
             currency="USD",
             period="sale",
         ),
-        rating=0, 
+        rating=0,
     )
