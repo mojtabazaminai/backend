@@ -1,4 +1,23 @@
+from datetime import datetime
+from typing import Optional
+
 from pydantic import BaseModel
+
+
+class UsageItem(BaseModel):
+    property_id: str
+    address: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    primary_photo: Optional[str] = None
+    created_at: datetime
+
+
+class UsageReportResponse(BaseModel):
+    total: int
+    page: int
+    limit: int
+    items: list[UsageItem]
 
 
 class PlanPayment(BaseModel):
