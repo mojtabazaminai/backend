@@ -214,6 +214,8 @@ class PropertySummary(BaseModel):
     state: Optional[str] = None
     postal_code: Optional[str] = None
     image_url: Optional[str] = None
+    bedrooms: Optional[int] = None
+    bathrooms: Optional[int] = None
     price: PropertyPrice
     rating: float = 0
 
@@ -250,6 +252,7 @@ class PropertyDetailResponse(BaseModel):
     amenities: List[str] = []
     images: List[str] = []
     primary_photo: Optional[str] = None
-    primary_photo_s3_address: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
     price: PropertyPrice
     rating: float = 0

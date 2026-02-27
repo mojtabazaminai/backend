@@ -38,7 +38,11 @@ def _build_document(prop: Property) -> dict[str, Any]:
         "city": _normalize(prop.city),
         "state_or_province": _normalize(prop.state_or_province),
         "postal_code": _normalize(prop.postal_code),
-        "primary_photo_url": prop.primary_photo_url,
+        "primary_photo": prop.primary_photo,
+        "bedrooms_total": prop.bedrooms_total,
+        "bathrooms_total_integer": prop.bathrooms_total_integer,
+        "created_at": prop.created_at.isoformat() if prop.created_at else None,
+        "updated_at": prop.updated_at.isoformat() if prop.updated_at else None,
     }
 
 
