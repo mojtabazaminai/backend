@@ -11,7 +11,7 @@ from ...schemas.property import (
     PropertySuggestResponse,
     PropertyPrice,
 )
-from ...core.utils.s3 import generate_presigned_url, get_s3_address
+from ...core.utils.s3 import generate_presigned_url
 from ...services.property.service import PropertyService
 from ...services.subscription.service import SubscriptionService
 from ..dependencies import get_optional_user, get_property_service, get_subscription_service
@@ -28,6 +28,13 @@ async def search_properties(
     cities: Optional[str] = Query(None, description="Comma-separated city filters"),
     states: Optional[str] = Query(None, description="Comma-separated state filters"),
     postal_codes: Optional[str] = Query(None, description="Comma-separated postal code filters"),
+    min_bedrooms: Optional[int] = Query(None, ge=0, description="Minimum number of bedrooms"),
+    max_bedrooms: Optional[int] = Query(None, ge=0, description="Maximum number of bedrooms"),
+    min_bathrooms: Optional[int] = Query(None, ge=0, description="Minimum number of bathrooms"),
+    max_bathrooms: Optional[int] = Query(None, ge=0, description="Maximum number of bathrooms"),
+    sort_by: Optional[str] = Query(None, description="Sort field: price, bedrooms, bathrooms, created_at, updated_at"),
+    sort_order: Optional[str] = Query("desc", description="Sort order: asc or desc"),
+    has_photo: Optional[bool] = Query(None, description="Only return properties with a primary photo"),
 ) -> Any:
     filters: Dict[str, Any] = {}
     if cities:
@@ -37,8 +44,39 @@ async def search_properties(
     if postal_codes:
         filters["postal_code"] = [p.strip().lower() for p in postal_codes.split(",")]
 
+    ranges: Dict[str, Dict[str, int]] = {}
+    if min_bedrooms is not None or max_bedrooms is not None:
+        r: Dict[str, int] = {}
+        if min_bedrooms is not None:
+            r["gte"] = min_bedrooms
+        if max_bedrooms is not None:
+            r["lte"] = max_bedrooms
+        ranges["bedrooms_total"] = r
+    if min_bathrooms is not None or max_bathrooms is not None:
+        r2: Dict[str, int] = {}
+        if min_bathrooms is not None:
+            r2["gte"] = min_bathrooms
+        if max_bathrooms is not None:
+            r2["lte"] = max_bathrooms
+        ranges["bathrooms_total_integer"] = r2
+
+    sort: list[Dict[str, str]] | None = None
+    if sort_by:
+        sort_field_map = {
+            "price": "list_price",
+            "bedrooms": "bedrooms_total",
+            "bathrooms": "bathrooms_total_integer",
+            "created_at": "created_at",
+            "updated_at": "updated_at",
+        }
+        es_field = sort_field_map.get(sort_by)
+        if es_field:
+            order = sort_order if sort_order in ("asc", "desc") else "desc"
+            sort = [{es_field: order}]
+
     result = await service.search_properties(
-        query=query, page=page, limit=limit, filters=filters
+        query=query, page=page, limit=limit, filters=filters, ranges=ranges, sort=sort,
+        has_photo=has_photo,
     )
     return result
 
@@ -69,14 +107,13 @@ async def get_property(
             await subscription_service.add_usage(
                 user_id=current_user["id"], property_id=listing_key
             )
-        except ValueError as exc:
-            raise HTTPException(status_code=412, detail=str(exc)) from exc
+        except ValueError:
+            pass
 
     # Map dict to Pydantic schema (FastCRUD .get() returns a dict)
     media = property.get("media") or []
     raw_photo_key = property.get("primary_photo")
     primary_photo_url = generate_presigned_url(raw_photo_key)
-    primary_photo_s3 = get_s3_address(raw_photo_key)
     return PropertyDetailResponse(
         id=property["listing_key"],
         name=property.get("unparsed_address"),
@@ -91,7 +128,8 @@ async def get_property(
         amenities=property.get("interior_features") or [],
         images=[m.get("MediaURL", "") for m in media],
         primary_photo=primary_photo_url,
-        primary_photo_s3_address=primary_photo_s3,
+        latitude=property.get("latitude"),
+        longitude=property.get("longitude"),
         price=PropertyPrice(
             amount=property.get("list_price"),
             currency="USD",

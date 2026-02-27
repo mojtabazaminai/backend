@@ -1,6 +1,7 @@
 from typing import Any, Dict, List
 from elasticsearch import AsyncElasticsearch
 from ...core.config import settings
+from ...core.utils.s3 import generate_presigned_url
 from ...schemas.property import PropertySummary, PropertySuggestion, PropertyPrice
 
 DEFAULT_SUGGEST_LIMIT = 10
@@ -28,14 +29,17 @@ class PropertyService:
         self.index = settings.ELASTICSEARCH_INDEX
 
     async def search_properties(
-        self, 
-        query: str | None = None, 
-        page: int = 1, 
+        self,
+        query: str | None = None,
+        page: int = 1,
         limit: int = 10,
-        filters: Dict[str, Any] | None = None
+        filters: Dict[str, Any] | None = None,
+        ranges: Dict[str, Dict[str, int]] | None = None,
+        sort: list[Dict[str, str]] | None = None,
+        has_photo: bool | None = None,
     ) -> Dict[str, Any]:
         es_query: Dict[str, Any] = {"bool": {"must": []}}
-        
+
         if query:
             es_query["bool"]["must"].append({
                 "multi_match": {
@@ -45,27 +49,40 @@ class PropertyService:
                     "operator": "and"
                 }
             })
-            
+
         if filters:
             for key, value in filters.items():
                 if value:
+                    keyword_key = f"{key}.keyword"
                     if isinstance(value, list):
-                         es_query["bool"]["must"].append({"terms": {key: value}})
+                         es_query["bool"]["must"].append({"terms": {keyword_key: value}})
                     else:
-                         es_query["bool"]["must"].append({"term": {key: value}})
+                         es_query["bool"]["must"].append({"term": {keyword_key: value}})
+
+        if ranges:
+            for field, bounds in ranges.items():
+                if bounds:
+                    es_query["bool"]["must"].append({"range": {field: bounds}})
+
+        if has_photo:
+            es_query["bool"]["must"].append({"exists": {"field": "primary_photo"}})
 
         if not es_query["bool"]["must"]:
             es_query = {"match_all": {}}
 
         from_ = (page - 1) * limit
 
-        response = await self.es_client.search(
-            index=self.index,
-            query=es_query,
-            from_=from_,
-            size=limit,
-            track_total_hits=True
-        )
+        search_kwargs: Dict[str, Any] = {
+            "index": self.index,
+            "query": es_query,
+            "from_": from_,
+            "size": limit,
+            "track_total_hits": True,
+        }
+        if sort:
+            search_kwargs["sort"] = sort
+
+        response = await self.es_client.search(**search_kwargs)
 
         hits = response["hits"]["hits"]
         total = response["hits"]["total"]["value"]
@@ -137,17 +154,21 @@ class PropertyService:
         return result
 
     def _map_hit_to_summary(self, source: Dict[str, Any]) -> PropertySummary:
+        raw_photo_key = source.get("primary_photo")
+        image_url = generate_presigned_url(raw_photo_key) if raw_photo_key else None
         return PropertySummary(
             id=source.get("listing_key", ""),
             name=source.get("unparsed_address"),
             city=source.get("city"),
             state=source.get("state_or_province"),
             postal_code=source.get("postal_code"),
-            image_url=source.get("primary_photo_url"),
+            image_url=image_url,
+            bedrooms=source.get("bedrooms_total"),
+            bathrooms=source.get("bathrooms_total_integer"),
             price=PropertyPrice(
                 amount=source.get("list_price"),
                 currency="USD",
                 period="sale"
             ),
-            rating=0 
+            rating=0
         )
