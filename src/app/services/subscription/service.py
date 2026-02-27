@@ -1,15 +1,17 @@
 from datetime import UTC, datetime
 
-from sqlalchemy import select, or_
+from sqlalchemy import select, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ...core.utils.s3 import generate_presigned_url
+from ...models.property import Property
 from ...models.subscription import (
     SubscriptionPlan,
     UserSubscription,
     UserSubscriptionUsage,
 )
 from ...schemas.auth import SubscriptionSummary
-from ...schemas.subscription import Plan, PlanPayment
+from ...schemas.subscription import Plan, PlanPayment, UsageItem, UsageReportResponse
 
 
 class SubscriptionService:
@@ -73,6 +75,49 @@ class SubscriptionService:
         subscription.monthly_listing_usage = used + 1
         await self.db.commit()
         return True
+
+    async def get_usage_report(
+        self, user_id: int, page: int = 1, limit: int = 20
+    ) -> UsageReportResponse:
+        offset = (page - 1) * limit
+
+        count_stmt = (
+            select(func.count())
+            .select_from(UserSubscriptionUsage)
+            .where(UserSubscriptionUsage.user_id == user_id)
+        )
+        total = (await self.db.execute(count_stmt)).scalar() or 0
+
+        stmt = (
+            select(
+                UserSubscriptionUsage.property_id,
+                UserSubscriptionUsage.created_at,
+                Property.unparsed_address,
+                Property.city,
+                Property.state_or_province,
+                Property.primary_photo,
+            )
+            .outerjoin(Property, UserSubscriptionUsage.property_id == Property.listing_key)
+            .where(UserSubscriptionUsage.user_id == user_id)
+            .order_by(UserSubscriptionUsage.created_at.desc())
+            .offset(offset)
+            .limit(limit)
+        )
+        rows = (await self.db.execute(stmt)).all()
+
+        items = []
+        for row in rows:
+            photo_url = generate_presigned_url(row.primary_photo) if row.primary_photo else None
+            items.append(UsageItem(
+                property_id=row.property_id,
+                address=row.unparsed_address,
+                city=row.city,
+                state=row.state_or_province,
+                primary_photo=photo_url,
+                created_at=row.created_at,
+            ))
+
+        return UsageReportResponse(total=total, page=page, limit=limit, items=items)
 
     async def _get_active_subscription(
         self, user_id: int
