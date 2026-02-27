@@ -29,7 +29,7 @@ class SMTPClient:
         message.set_content(payload.body, subtype="html")
 
         # Configure connection arguments
-        smtp_args = {
+        smtp_args: dict = {
             "hostname": self.hostname,
             "port": self.port,
         }
@@ -37,16 +37,15 @@ class SMTPClient:
         if settings.SMTP_SSL:
             # Implicit SSL/TLS (usually port 465)
             smtp_args["use_tls"] = True
+        elif settings.SMTP_TLS:
+            # STARTTLS (usually port 587) - auto-negotiated by aiosmtplib
+            smtp_args["use_tls"] = False
+            smtp_args["start_tls"] = True
         else:
-            # No implicit TLS (usually port 25 or 587)
             smtp_args["use_tls"] = False
 
         async with aiosmtplib.SMTP(**smtp_args) as smtp:
-            if settings.SMTP_TLS and not settings.SMTP_SSL:
-                # STARTTLS (usually port 587)
-                await smtp.starttls()
-            
             if self.username and self.password:
                 await smtp.login(self.username, self.password)
-            
+
             await smtp.send_message(message)
