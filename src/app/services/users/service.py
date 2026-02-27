@@ -6,6 +6,7 @@ from typing import Any
 
 from fastapi import HTTPException, status
 from redis.asyncio import Redis
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...core.security import get_password_hash, verify_password
@@ -21,6 +22,7 @@ from ...schemas.auth import (
     ProviderCallback,
     ProviderClientID,
 )
+from ...models.subscription import SubscriptionPlan, UserSubscription
 from ...schemas.user import UserCreateInternal, UserUpdate, UserRead
 from ..notification.service import NotificationService
 from .providers import GoogleProvider
@@ -49,6 +51,17 @@ class UserService:
         self.redis = redis
         self.notification_service = NotificationService(db)
         self.google_provider = GoogleProvider()
+
+    async def _assign_trial_subscription(self, user_id: int) -> None:
+        result = await self.db.execute(
+            select(SubscriptionPlan).where(SubscriptionPlan.tier == "trial")
+        )
+        plan = result.scalars().first()
+        if not plan:
+            return
+        subscription = UserSubscription(user_id=user_id, plan_id=plan.id, ended_at=None, canceled_at=None)
+        self.db.add(subscription)
+        await self.db.commit()
 
     def _get_otp_key(self, reason: OTPReason, email: str) -> str:
         return f"auth:otp:{reason.value}:{email}"
@@ -176,6 +189,7 @@ class UserService:
                 password_hash="" # No password for OTP users initially # No password for OTP users initially
             )
             new_user = await crud_users.create(db=self.db, object=user_in, schema_to_select=UserRead, return_as_model=True)
+            await self._assign_trial_subscription(new_user.id)
             return new_user, LoginAction.REGISTER
 
     async def password_reset_init(self, req: PasswordResetRequest) -> OTPResponse:
@@ -284,6 +298,7 @@ class UserService:
                 password_hash="" # No password for OTP users initially # No password for OAuth users
             )
             user = await crud_users.create(db=self.db, object=user_in, schema_to_select=UserRead, return_as_model=True)
+            await self._assign_trial_subscription(user.id)
         else:
             # Update user info if needed? Go code just returns user.
             # Go code: CreateFromProviderData -> likely upserts or just creates if not exists.
