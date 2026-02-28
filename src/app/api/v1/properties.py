@@ -1,13 +1,16 @@
 from typing import Annotated, Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, Query, HTTPException
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...core.db.database import async_get_db
 from ...crud import crud_property
+from ...models.property import PropertyMedia as PropertyMediaModel
 from ...schemas.property import (
     PropertyDetailResponse,
     PropertyListResponse,
+    PropertyMediaItem,
     PropertySuggestResponse,
     PropertyPrice,
 )
@@ -99,8 +102,24 @@ async def get_property(
     if not property:
         raise HTTPException(status_code=404, detail="Property not found")
 
-    # Map dict to Pydantic schema (FastCRUD .get() returns a dict)
-    media = property.get("media") or []
+    # Query S3-backed media from property_media table
+    media_stmt = (
+        select(PropertyMediaModel)
+        .where(PropertyMediaModel.property_id == listing_key)
+        .order_by(PropertyMediaModel.order)
+    )
+    media_result = await db.execute(media_stmt)
+    media_rows = media_result.scalars().all()
+    media_items = [
+        PropertyMediaItem(
+            url=generate_presigned_url(row.s3_path),
+            kind=row.kind,
+            order=row.order,
+            description=row.description,
+        )
+        for row in media_rows
+    ]
+
     raw_photo_key = property.get("primary_photo")
     primary_photo_url = generate_presigned_url(raw_photo_key)
     return PropertyDetailResponse(
@@ -115,7 +134,7 @@ async def get_property(
         bathrooms=property.get("bathrooms_total_integer"),
         area=property.get("living_area"),
         amenities=property.get("interior_features") or [],
-        images=[m.get("MediaURL", "") for m in media],
+        media=media_items,
         primary_photo=primary_photo_url,
         latitude=property.get("latitude"),
         longitude=property.get("longitude"),

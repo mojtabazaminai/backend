@@ -201,6 +201,13 @@ class PropertyBase(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class PropertyMediaItem(BaseModel):
+    url: Optional[str] = None
+    kind: str = ""
+    order: int = 0
+    description: Optional[str] = None
+
+
 class PropertyPrice(BaseModel):
     amount: Optional[float]
     currency: str = "USD"
@@ -252,7 +259,7 @@ class PropertyDetailResponse(BaseModel):
     bathrooms: Optional[int] = None
     area: Optional[float] = None
     amenities: List[str] = []
-    images: List[str] = []
+    media: List[PropertyMediaItem] = []
     primary_photo: Optional[str] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
