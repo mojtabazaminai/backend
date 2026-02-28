@@ -29,7 +29,7 @@ def _normalize(value: str | None, *, upper: bool = False) -> str:
 
 
 def _build_document(prop: Property) -> dict[str, Any]:
-    return {
+    doc: dict[str, Any] = {
         "listing_key": prop.listing_key,
         "standard_status": _normalize(prop.standard_status),
         "property_type": _normalize(prop.property_type),
@@ -43,7 +43,12 @@ def _build_document(prop: Property) -> dict[str, Any]:
         "bathrooms_total_integer": prop.bathrooms_total_integer,
         "created_at": prop.created_at.isoformat() if prop.created_at else None,
         "updated_at": prop.updated_at.isoformat() if prop.updated_at else None,
+        "latitude": prop.latitude,
+        "longitude": prop.longitude,
     }
+    if prop.latitude is not None and prop.longitude is not None:
+        doc["location"] = {"lat": prop.latitude, "lon": prop.longitude}
+    return doc
 
 
 def _count_bulk_successes(items: list[dict[str, Any]]) -> int:

@@ -24,7 +24,16 @@ async def ensure_indices(indices: list[str] | str | None = None) -> dict[str, li
         if exists:
             skipped.append(index)
             continue
-        await client.indices.create(index=index)
+        await client.indices.create(
+            index=index,
+            mappings={
+                "properties": {
+                    "latitude": {"type": "float"},
+                    "longitude": {"type": "float"},
+                    "location": {"type": "geo_point"},
+                }
+            },
+        )
         created.append(index)
 
     return {"created": created, "skipped": skipped}

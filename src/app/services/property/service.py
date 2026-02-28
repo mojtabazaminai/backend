@@ -165,6 +165,8 @@ class PropertyService:
             image_url=image_url,
             bedrooms=source.get("bedrooms_total"),
             bathrooms=source.get("bathrooms_total_integer"),
+            latitude=source.get("latitude"),
+            longitude=source.get("longitude"),
             price=PropertyPrice(
                 amount=source.get("list_price"),
                 currency="USD",

@@ -13,8 +13,7 @@ from ...schemas.property import (
 )
 from ...core.utils.s3 import generate_presigned_url
 from ...services.property.service import PropertyService
-from ...services.subscription.service import SubscriptionService
-from ..dependencies import get_optional_user, get_property_service, get_subscription_service
+from ..dependencies import get_property_service
 
 router = APIRouter(prefix="/properties", tags=["Properties"])
 
@@ -95,20 +94,10 @@ async def suggest_properties(
 async def get_property(
     listing_key: str,
     db: AsyncSession = Depends(async_get_db),
-    current_user: dict | None = Depends(get_optional_user),
-    subscription_service: SubscriptionService = Depends(get_subscription_service),
 ) -> Any:
     property = await crud_property.get(db, listing_key=listing_key)
     if not property:
         raise HTTPException(status_code=404, detail="Property not found")
-
-    if current_user:
-        try:
-            await subscription_service.add_usage(
-                user_id=current_user["id"], property_id=listing_key
-            )
-        except ValueError:
-            pass
 
     # Map dict to Pydantic schema (FastCRUD .get() returns a dict)
     media = property.get("media") or []

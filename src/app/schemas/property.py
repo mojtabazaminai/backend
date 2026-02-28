@@ -216,6 +216,8 @@ class PropertySummary(BaseModel):
     image_url: Optional[str] = None
     bedrooms: Optional[int] = None
     bathrooms: Optional[int] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
     price: PropertyPrice
     rating: float = 0
 
